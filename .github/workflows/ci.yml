@@ -1,0 +1,27 @@
+name: C++ Build CI
+
+on:
+  push:
+    branches: [ main, feature_chat_server ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: sudo apt-get update && sudo apt-get install -y g++
+
+    - name: Build Server
+      run: g++ -std=c++17 server/server.cpp -o server_exe -pthread
+
+    - name: Build Client
+      run: g++ -std=c++17 client/client.cpp -o client_exe -pthread
+
+    - name: Run basic check
+      run: echo "Build successful"
