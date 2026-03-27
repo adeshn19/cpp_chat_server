@@ -1,18 +1,19 @@
-#include<iostream>
-#include<vector>
-#include<thread>
-#include<mutex>
-#include<cstring>
-#include<unistd.h>
-#include<arpa/inet.h>
+#include <iostream>
+#include <vector>
+#include <thread>
+#include <mutex>
+#include <cstring>
+#include <unistd.h>
+#include <arpa/inet.h>
 #include <errno.h>
 #include <sys/socket.h> // Needed for socket-related functions
 #include "client_manager.hpp"
 #include "message_handler.hpp"
-
+#include "thread_pool.hpp"
 #define PORT 8083
 ClientManager manager;
-void handle_client(int client_socket) {
+void handle_client(int client_socket)
+{
 
     char buffer[1024];
 
@@ -21,7 +22,8 @@ void handle_client(int client_socket) {
     // Step 1: Get username
     int bytes = recv(client_socket, buffer, sizeof(buffer), 0);
 
-    if (bytes <= 0) {
+    if (bytes <= 0)
+    {
         std::cout << "[ERROR] Failed to receive username\n";
         close(client_socket);
         return;
@@ -29,7 +31,8 @@ void handle_client(int client_socket) {
 
     std::string username(buffer, bytes);
 
-    if (username.empty() || manager.username_exists(username)) {
+    if (username.empty() || manager.username_exists(username))
+    {
         std::string err = "Invalid or duplicate username\n";
         send(client_socket, err.c_str(), err.size(), 0);
         close(client_socket);
@@ -42,11 +45,13 @@ void handle_client(int client_socket) {
     std::string join_msg = username + " joined the chat\n";
     manager.broadcast(join_msg, client_socket);
 
-    while (true) {
+    while (true)
+    {
         memset(buffer, 0, sizeof(buffer));
         int bytes = recv(client_socket, buffer, sizeof(buffer), 0);
 
-        if (bytes <= 0) {
+        if (bytes <= 0)
+        {
             std::cout << "[DISCONNECTED] " << username << std::endl;
 
             std::string leave_msg = username + " left the chat\n";
@@ -66,9 +71,11 @@ void handle_client(int client_socket) {
     }
 }
 
-int main() {
+int main()
+{
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (server_fd == -1) {
+    if (server_fd == -1)
+    {
         std::cerr << "Socket creation failed: " << strerror(errno) << std::endl;
         return 1;
     }
@@ -78,13 +85,15 @@ int main() {
     server_addr.sin_port = htons(PORT);
     server_addr.sin_addr.s_addr = INADDR_ANY;
 
-    if (bind(server_fd, (sockaddr*)&server_addr, sizeof(server_addr)) == -1) {
+    if (bind(server_fd, (sockaddr *)&server_addr, sizeof(server_addr)) == -1)
+    {
         std::cerr << "Bind failed: " << strerror(errno) << std::endl;
         close(server_fd);
         return 1;
     }
 
-    if (listen(server_fd, 10) == -1) {
+    if (listen(server_fd, 10) == -1)
+    {
         std::cerr << "Listen failed: " << strerror(errno) << std::endl;
         close(server_fd);
         return 1;
@@ -92,19 +101,22 @@ int main() {
 
     std::cout << "Chat server started....\n";
 
-    while (true) {
+    ThreadPool pool(4);
+    while (true)
+    {
         sockaddr_in client_addr;
         socklen_t addr_size = sizeof(client_addr);
 
-        int client_socket = accept(server_fd, (sockaddr*)&client_addr, &addr_size);
-        if (client_socket == -1) {
+        int client_socket = accept(server_fd, (sockaddr *)&client_addr, &addr_size);
+        if (client_socket == -1)
+        {
             std::cerr << "Accept failed: " << strerror(errno) << std::endl;
-            continue;  // Continue to listen for more connections
+            continue; // Continue to listen for more connections
         }
         std::cout << "[ACCEPTED] Client socket: " << client_socket << std::endl;
 
-        std::thread client_thread(handle_client, client_socket);
-        client_thread.detach();
+        pool.enqueue([client_socket]()
+                     { handle_client(client_socket); });
     }
     return 0;
 }
