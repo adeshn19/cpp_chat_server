@@ -1,11 +1,13 @@
-# Compiler
 CXX = g++
-CXXFLAGS = -std=c++17 -Wall -pthread
 
-# Source files
-SRC = src/client.cpp
+CXXFLAGS = -std=c++17 -Wall -pthread \
+           -I ../logger/inc \
+           -I ../utils/inc
 
-# Output
+SRC = src/client.cpp \
+      ../logger/src/logger.cpp \
+      ../utils/src/utils.cpp
+
 TARGET = client_exe
 
 all:

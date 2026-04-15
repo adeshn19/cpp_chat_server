@@ -1,11 +1,14 @@
-# Compiler
 CXX = g++
-CXXFLAGS = -std=c++17 -Wall -pthread -I inc
 
-# Source files
-SRC = $(wildcard src/*.cpp)
+CXXFLAGS = -std=c++17 -Wall -pthread \
+           -I inc \
+           -I ../logger/inc \
+           -I ../utils/inc
 
-# Output
+SRC = $(wildcard src/*.cpp) \
+      ../logger/src/logger.cpp \
+      ../utils/src/utils.cpp
+
 TARGET = server_exe
 
 all:
