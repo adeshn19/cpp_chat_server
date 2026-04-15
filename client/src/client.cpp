@@ -1,57 +1,94 @@
+#include "logger.hpp"
+#include "utils.hpp"
+#include <arpa/inet.h>
+#include <cstring>
 #include <iostream>
 #include <thread>
 #include <unistd.h>
-#include <arpa/inet.h>
-#include <cstring>
-
 #define PORT 8083
 
 void receive_messages(int sock) {
-    char buffer[1024];
+  char buffer[1024];
 
-    while (true) {
-        memset(buffer, 0, sizeof(buffer));
-        int bytes = recv(sock, buffer, sizeof(buffer), 0);
+  while (true) {
+    memset(buffer, 0, sizeof(buffer));
+    int bytes = recv(sock, buffer, sizeof(buffer), 0);
 
-        if (bytes <= 0) {
-            std::cout << "\nDisconnected from server\n";
-            break;
-        }
+    if (bytes <= 0) {
 
-        std::string msg(buffer, bytes);
-        std::cout << "\r" << msg << "\n> " << std::flush;  // clean UI
+      logMessage(LogLevel::ERROR, "Disconnected from server");
+      break;
     }
+
+    std::string msg(buffer, bytes);
+
+    logMessage(LogLevel::INFO, "Message received: " + msg);
+  }
 }
 
 int main() {
 
-    int sock = socket(AF_INET, SOCK_STREAM, 0);
+  int sock = socket(AF_INET, SOCK_STREAM, 0);
+  if (sock == -1) {
+    std::string err = strerror(errno);
+    logMessage(LogLevel::ERROR, "Socket creation failed: " + err);
+    return 1;
+  }
 
-    sockaddr_in server_addr;
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(PORT);
-    inet_pton(AF_INET, "127.0.0.1", &server_addr.sin_addr);
+  logMessage(LogLevel::INFO, "Socket created");
 
-    connect(sock, (sockaddr*)&server_addr, sizeof(server_addr));
+  sockaddr_in server_addr;
+  server_addr.sin_family = AF_INET;
+  server_addr.sin_port = htons(PORT);
 
-    std::string username;
-    std::cout << "Enter username: ";
-    std::getline(std::cin, username);
+  if (inet_pton(AF_INET, "127.0.0.1", &server_addr.sin_addr) <= 0) {
+    logMessage(LogLevel::ERROR, "Invalid server address");
+    return 1;
+  }
 
-    send(sock, username.c_str(), username.size(), 0);
+  if (connect(sock, (sockaddr *)&server_addr, sizeof(server_addr)) == -1) {
+    std::string err = strerror(errno);
+    logMessage(LogLevel::ERROR, "Connection failed: " + err);
+    return 1;
+  }
 
-    std::thread recv_thread(receive_messages, sock);
+  logMessage(LogLevel::INFO, "Connected to server (127.0.0.1:8083)");
 
-    while (true) {
-        std::string msg;
-        std::cout << "> ";
-        std::getline(std::cin, msg);
+  std::string username;
+  std::cout << "Enter username: ";
+  std::getline(std::cin, username);
 
-        send(sock, msg.c_str(), msg.size(), 0);
+  send(sock, username.c_str(), username.size(), 0);
+
+  logMessage(LogLevel::DEBUG, "Username sent: " + username);
+
+  std::thread recv_thread(receive_messages, sock);
+
+  logMessage(LogLevel::DEBUG, "Receiver thread started");
+
+  while (true) {
+    std::string msg;
+    std::cout << "> ";
+    std::getline(std::cin, msg);
+
+    if (msg.empty())
+      continue;
+
+    int bytes = send(sock, msg.c_str(), msg.size(), 0);
+
+    if (bytes == -1) {
+      std::string err = strerror(errno);
+      logMessage(LogLevel::ERROR, "Send failed: " + err);
+    } else {
+      logMessage(LogLevel::DEBUG,
+                 "Message sent (" + std::to_string(bytes) + " bytes): " + msg);
     }
+  }
 
-    recv_thread.join();
-    close(sock);
+  recv_thread.join();
+  close(sock);
 
-    return 0;
+  logMessage(LogLevel::INFO, "Client shutdown");
+
+  return 0;
 }

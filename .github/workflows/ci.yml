@@ -19,11 +19,10 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y g++
 
-    - name: Build Server
-      run: make -C server
-
-    - name: Build Client
-      run: make -C client
+    - name: Build project using script
+      run: |
+        chmod +x scripts/build.sh
+        ./scripts/build.sh
 
     - name: Run basic check
       run: echo "Build successful"
